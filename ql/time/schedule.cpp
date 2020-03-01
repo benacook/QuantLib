@@ -22,6 +22,7 @@
 #include <ql/time/schedule.hpp>
 #include <ql/time/imm.hpp>
 #include <ql/settings.hpp>
+#include <iostream>
 
 namespace QuantLib {
 
@@ -41,6 +42,7 @@ namespace QuantLib {
                     result += skip*Months;
                 }
             }
+            //std::cout << result << std::endl;
             return result;
         }
 
@@ -284,7 +286,6 @@ namespace QuantLib {
             } else {
                 dates_.push_back(effectiveDate);
             }
-
             seed = dates_.back();
 
             if (firstDate_!=Date()) {
@@ -328,6 +329,11 @@ namespace QuantLib {
             for (;;) {
                 Date temp = nullCalendar.advance(seed, periods*(*tenor_),
                                                  convention, *endOfMonth_);
+
+				//std::cout << temp << " > " << exitDate << std::endl;
+                //std::cout << "bool result:" << (temp > exitDate) << std::endl;
+                //std::cout << nextToLastDate_ << " != " << Date() << std::endl;
+
                 if (temp > exitDate) {
                     if (nextToLastDate_ != Date() &&
                         (calendar_.adjust(dates_.back(),convention)!=
@@ -335,6 +341,16 @@ namespace QuantLib {
                         dates_.push_back(nextToLastDate_);
                         isRegular_.push_back(false);
                     }
+                    // tenor is either 3 or 9 months plus any years
+                    // i.e. 3, 9, 15, 21, etc...
+					else if (((tenor.length() / 3) % 2) != 0 && tenor.units() == Months) {
+                        //std::cout << temp << std::endl;
+                        //std::cout << exitDate << std::endl;
+                        if (((dates_.front().month() / 3) % 2) == 0 && tenor.units() == Months) {
+                            temp -= 3 * Months;
+                        }
+                        dates_.push_back(temp);
+					}
                     break;
                 } else {
                     // skip dates that would result in duplicates
@@ -359,7 +375,9 @@ namespace QuantLib {
                 } else if(*rule_ == DateGeneration::CDS2015) {
                     Date tentativeTerminationDate =
                         nextTwentieth(terminationDate, *rule_);
-                    if(tentativeTerminationDate.month() %2 == 0) {
+                    //std::cout << "term date:" << tentativeTerminationDate << std::endl;
+                    if(tentativeTerminationDate.month() %2 == 0 &&
+                        (((tenor.length() / 3) % 2) == 0 && tenor.units() == Months)) {
                         dates_.push_back(tentativeTerminationDate);
                         isRegular_.push_back(true);
                     }

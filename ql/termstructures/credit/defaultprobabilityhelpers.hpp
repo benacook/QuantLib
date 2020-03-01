@@ -98,7 +98,6 @@ namespace QuantLib {
       void update();
       protected:
       void initializeDates();
-      void initializeDatesUsingTenor();
         virtual void resetEngine() = 0;
         Period tenor_;
         Integer settlementDays_;
