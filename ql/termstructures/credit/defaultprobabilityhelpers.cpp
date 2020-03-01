@@ -74,7 +74,15 @@ namespace QuantLib {
           lastPeriodDC_(lastPeriodDayCounter), rebatesAccrual_(rebatesAccrual),
           model_(model), startDate_(startDate){
 
-        initializeDates();
+		//initalise dates using tenor if the tenor is
+		//either 3 or 9 months plus any years
+		//i.e. 3, 9, 15, 21, etc...
+		if (((tenor.length / 3) % 2) != 0
+			&& tenor.units == Months) {
+            initializeDatesUsingTenor();
+        } else {
+			initializeDates();
+		}
 
         registerWith(discountCurve);
     }
@@ -125,6 +133,41 @@ namespace QuantLib {
         earliestDate_ = schedule_.dates().front();
         latestDate_   = calendar_.adjust(schedule_.dates().back(),
                                          paymentConvention_);
+        if (model_ == CreditDefaultSwap::ISDA)
+            ++latestDate_;
+    }
+
+	void CdsHelper::initializeDatesUsingTenor() {
+        protectionStart_ = evaluationDate_ + settlementDays_;
+        Date startDate, endDate;
+        if (startDate_ == Date()) {
+            startDate = calendar_.adjust(protectionStart_, paymentConvention_);
+            if (rule_ == DateGeneration::CDS ||
+                rule_ == DateGeneration::CDS2015) { // for standard CDS ..
+                // .. the start date is not adjusted
+                startDate = protectionStart_;
+            }
+            // .. and (in any case) the end date rolls by 3 month as
+            //  soon as the trade date falls on an IMM date,
+            // or the March or September IMM date in case of the CDS2015 rule.
+            endDate = protectionStart_ + tenor_;
+
+        } else {
+            if (!schedule_.empty())
+                return; // no need to update schedule
+            startDate = calendar_.adjust(startDate_, paymentConvention_);
+            endDate = startDate_ + settlementDays_ + tenor_;
+        }
+        schedule_ = MakeSchedule()
+                        .from(startDate)
+                        .to(endDate)
+                        .withTenor(tenor_)
+                        .withCalendar(calendar_)
+                        .withConvention(paymentConvention_)
+                        .withTerminationDateConvention(Unadjusted)
+                        .withRule(rule_);
+        earliestDate_ = schedule_.dates().front();
+        latestDate_ = calendar_.adjust(schedule_.dates().back(), paymentConvention_);
         if (model_ == CreditDefaultSwap::ISDA)
             ++latestDate_;
     }
